@@ -2,6 +2,7 @@
 
 OWNER_NAME=$1
 PROJECT_NAME=$2
+FIREBASE_PROJECT_NAME="issue-testing"
 PACKAGE_NAME="com.$OWNER_NAME.$PROJECT_NAME"
 ANDROID_API=33
 
@@ -658,3 +659,6 @@ EOF
 
 
 echo "Project $PROJECT_NAME created successfully."
+
+app_id=$(firebase --project $FIREBASE_PROJECT_NAME apps:create ANDROID --package-name=$PACKAGE_NAME $PROJECT_NAME | grep 'App ID:' | awk '{print $NF}')
+firebase apps:sdkconfig ANDROID $app_id > google-services.json
