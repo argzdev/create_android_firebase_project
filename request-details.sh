@@ -26,7 +26,7 @@ CREDENTIALS_FILE="./project-details.txt"
 # Ask for details then store in credentials.txt
 if [ ! -f $CREDENTIALS_FILE ]; then
 # Ask for project ID
-read -p $'\e[32m?\e[0m Please input the project ID you would like to use: \e[36m' PROJECT_ID
+read -p $'\e[32m?\e[0m Please input Firebase project ID to use: \e[36m' PROJECT_ID
 
 # Create credentials.txt
 cat <<EOF > $CREDENTIALS_FILE
@@ -34,7 +34,7 @@ PROJECT_ID=$PROJECT_ID
 EOF
 
 # Ask for owner name
-read -p $'\e[32m?\e[0m Please input the owner name for your projects: \e[36m' OWNER_NAME
+read -p $'\e[32m?\e[0m Please input the ORG/OWNER name. This will be used for naming convention for the app as "com.OWNER.appname": \e[36m' OWNER_NAME
 
 # Add owner name in credentials.txt
 cat <<EOF >> $CREDENTIALS_FILE
