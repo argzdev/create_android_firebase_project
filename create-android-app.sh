@@ -1,31 +1,15 @@
 #!/bin/bash
 
 OWNER_NAME=$1
-PROJECT_NAME=$2
-FIREBASE_PROJECT_NAME="issue-testing"
-PACKAGE_NAME="com.$OWNER_NAME.$PROJECT_NAME"
+APP_NAME=$2
+PACKAGE_NAME="com.$OWNER_NAME.$APP_NAME"
 ANDROID_API=33
 
-if [ -z "$OWNER_NAME" ]; then
-  echo "Please specify an owner name as a command line argument. e.g. sh create_firebase_project.sh <OWNER_NAME> <PROJECT_NAME>"
-  exit 1
-fi
-
-if [ -z "$PROJECT_NAME" ]; then
-  echo "Please specify a project name as a command line argument. e.g. sh create_firebase_project.sh <OWNER_NAME> <PROJECT_NAME>"
-  exit 1
-fi
-
-echo "Creating new Android project in Kotlin with name $PROJECT_NAME..."
-
 # create new folder for the project
-mkdir $PROJECT_NAME
-
-# navigate to project directory
-cd $PROJECT_NAME
+mkdir $APP_NAME
 
 # setup gradlew.bat
-cat <<EOF > gradlew.bat
+cat <<EOF > $APP_NAME/gradlew.bat
 @rem
 @rem Copyright 2015 the original author or authors.
 @rem
@@ -118,7 +102,7 @@ if "%OS%"=="Windows_NT" endlocal
 EOF
 
 # setup settings.gradle
-cat <<EOF > settings.gradle
+cat <<EOF > $APP_NAME/settings.gradle
 pluginManagement {
     repositories {
         google()
@@ -133,12 +117,12 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "$PROJECT_NAME"
+rootProject.name = "$APP_NAME"
 include ':app'
 EOF
 
 # setup gradle.properties
-cat <<EOF > gradle.properties
+cat <<EOF > $APP_NAME/gradle.properties
 org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.useAndroidX=true
 kotlin.code.style=official
@@ -146,7 +130,7 @@ android.nonTransitiveRClass=true
 EOF
 
 # setup .gitignore
-cat <<EOF > .gitignore
+cat <<EOF > $APP_NAME/.gitignore
 *.iml
 .gradle
 /local.properties
@@ -165,7 +149,7 @@ local.properties
 EOF
 
 # setup app build.gradle
-cat <<EOF > build.gradle
+cat <<EOF > $APP_NAME/build.gradle
 buildscript {
     repositories {
         google()  // Google's Maven repository
@@ -173,6 +157,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.5'
     }
 }
 plugins {
@@ -183,12 +168,13 @@ plugins {
 EOF
 
 # set up module build.gradle
-mkdir -p app
-cat <<EOF > app/build.gradle
+mkdir -p $APP_NAME/app
+cat <<EOF > $APP_NAME/app/build.gradle
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'com.google.gms.google-services'
+    id 'com.google.firebase.crashlytics'
 }
 
 android {
@@ -230,7 +216,8 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
-    implementation platform('com.google.firebase:firebase-bom:31.2.2')
+    implementation platform('com.google.firebase:firebase-bom:32.0.0')
+    implementation 'com.google.firebase:firebase-crashlytics'
     implementation 'com.google.firebase:firebase-analytics-ktx'
     implementation 'com.google.firebase:firebase-perf-ktx'
 }
@@ -238,8 +225,8 @@ EOF
 
 
 # create gradle-wrapper.properties
-mkdir -p gradle/wrapper
-cat <<EOF > gradle/wrapper/gradle-wrapper.properties
+mkdir -p $APP_NAME/gradle/wrapper
+cat <<EOF > $APP_NAME/gradle/wrapper/gradle-wrapper.properties
 distributionBase=GRADLE_USER_HOME
 distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-bin.zip
 distributionPath=wrapper/dists
@@ -247,30 +234,38 @@ zipStorePath=wrapper/dists
 zipStoreBase=GRADLE_USER_HOME
 EOF
 
-
-# navigate to app folder
-cd app
-
 # create the package directory
-mkdir -p src/main/java/$(echo $PACKAGE_NAME | tr '.' '/')
+mkdir -p $APP_NAME/app/src/main/java/$(echo $PACKAGE_NAME | tr '.' '/')
 
 # create the main activity
-cat <<EOF > src/main/java/$(echo $PACKAGE_NAME | tr '.' '/')/MainActivity.kt
+cat <<EOF > $APP_NAME/app/src/main/java/$(echo $PACKAGE_NAME | tr '.' '/')/MainActivity.kt
 package $PACKAGE_NAME
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.Button
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val crashButton = Button(this)
+        crashButton.text = "Test Crash"
+        crashButton.setOnClickListener {
+        throw RuntimeException("Test Crash") // Force a crash
+        }
+
+        addContentView(crashButton, ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 }
 EOF
 
 # create AndroidManifest.xml
-cat <<EOF > src/main/AndroidManifest.xml
+cat <<EOF > $APP_NAME/app/src/main/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
@@ -282,7 +277,7 @@ cat <<EOF > src/main/AndroidManifest.xml
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.$PROJECT_NAME"
+        android:theme="@style/Theme.$APP_NAME"
         tools:targetApi="$ANDROID_API">
         <activity
             android:name=".MainActivity"
@@ -299,8 +294,8 @@ EOF
 
 
 # create the layout file
-mkdir -p src/main/res/layout
-cat <<EOF > src/main/res/layout/activity_main.xml
+mkdir -p $APP_NAME/app/src/main/res/layout
+cat <<EOF > $APP_NAME/app/src/main/res/layout/activity_main.xml
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -324,8 +319,8 @@ EOF
 
 
 # create the backup_rules.xml
-mkdir -p src/main/res/xml
-cat <<EOF > src/main/res/xml/backup_rules.xml
+mkdir -p $APP_NAME/app/src/main/res/xml
+cat <<EOF > $APP_NAME/app/src/main/res/xml/backup_rules.xml
 <?xml version="1.0" encoding="utf-8"?><!--
    Sample backup rules file; uncomment and customize as necessary.
    See https://developer.android.com/guide/topics/data/autobackup
@@ -343,8 +338,8 @@ EOF
 
 
 # create the data_extraction_rules.xml
-# mkdir -p src/main/res/xml
-cat <<EOF > src/main/res/xml/data_extraction_rules.xml
+mkdir -p $APP_NAME/app/src/main/res/xml
+cat <<EOF > $APP_NAME/app/src/main/res/xml/data_extraction_rules.xml
 <?xml version="1.0" encoding="utf-8"?><!--
    Sample data extraction rules file; uncomment and customize as necessary.
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
@@ -368,11 +363,11 @@ EOF
 
 
 # create themes.xml in values
-mkdir -p src/main/res/values
-cat <<EOF > src/main/res/values/themes.xml
+mkdir -p $APP_NAME/app/src/main/res/values
+cat <<EOF > $APP_NAME/app/src/main/res/values/themes.xml
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.$PROJECT_NAME" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.$APP_NAME" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/purple_500</item>
         <item name="colorPrimaryVariant">@color/purple_700</item>
@@ -390,8 +385,8 @@ EOF
 
 
 # create themes.xml in values-night
-mkdir -p src/main/res/values-night
-cat <<EOF > src/main/res/values-night/themes.xml
+mkdir -p $APP_NAME/app/src/main/res/values-night
+cat <<EOF > $APP_NAME/app/src/main/res/values-night/themes.xml
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.Test_project" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
@@ -412,7 +407,7 @@ EOF
 
 
 # create colors.xml in values
-cat <<EOF > src/main/res/values/colors.xml
+cat <<EOF > $APP_NAME/app/src/main/res/values/colors.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="purple_200">#FFBB86FC</color>
@@ -426,16 +421,16 @@ cat <<EOF > src/main/res/values/colors.xml
 EOF
 
 # create strings.xml in values
-cat <<EOF > src/main/res/values/strings.xml
+cat <<EOF > $APP_NAME/app/src/main/res/values/strings.xml
 <resources>
-    <string name="app_name">$PROJECT_NAME</string>
+    <string name="app_name">$APP_NAME</string>
 </resources>
 EOF
 
 
 # create ic_launcher_background.xml in drawable
-mkdir -p src/main/res/drawable
-cat <<EOF > src/main/res/drawable/ic_launcher_background.xml
+mkdir -p $APP_NAME/app/src/main/res/drawable
+cat <<EOF > $APP_NAME/app/src/main/res/drawable/ic_launcher_background.xml
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -610,8 +605,8 @@ EOF
 
 
 # create ic_launcher_foreground.xml in drawable
-mkdir -p src/main/res/drawable-v24
-cat <<EOF > src/main/res/drawable-v24/ic_launcher_foreground.xml
+mkdir -p $APP_NAME/app/src/main/res/drawable-v24
+cat <<EOF > $APP_NAME/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -646,8 +641,8 @@ EOF
 
 
 # create AndroidManifest.xml
-mkdir -p src/main/res/mipmap-anydpi-v33
-cat <<EOF > src/main/res/mipmap-anydpi-v33/ic_launcher.xml
+mkdir -p $APP_NAME/app/src/main/res/mipmap-anydpi-v33
+cat <<EOF > $APP_NAME/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
@@ -657,8 +652,3 @@ cat <<EOF > src/main/res/mipmap-anydpi-v33/ic_launcher.xml
 EOF
 
 
-
-echo "Project $PROJECT_NAME created successfully."
-
-app_id=$(firebase --project $FIREBASE_PROJECT_NAME apps:create ANDROID --package-name=$PACKAGE_NAME $PROJECT_NAME | grep 'App ID:' | awk '{print $NF}')
-firebase apps:sdkconfig ANDROID $app_id > google-services.json
