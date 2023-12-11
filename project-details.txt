@@ -1,2 +1,0 @@
-PROJECT_ID=issue-testing
-OWNER_NAME=argz
